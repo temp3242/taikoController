@@ -110,7 +110,7 @@ public:
         putText(frame, "Points: " + to_string((framesLeft + framesRight) / 2),
                 Point(0, 50), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0, 0, 0), 4);
 
-        putText(frame, "High Score: " + to_string(highscore), Point(0, 8),
+        putText(frame, "High Score: " + to_string(highscore), Point(0, 20),
                 FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0, 0, 0), 4);
     }
 
@@ -190,6 +190,7 @@ bool confirmExit(CapturaVideo &cap) {
             break;
 
         flip(frame, frame, 1);
+        resize(frame, frame, Size(1280, 720), 0, 0, INTER_LINEAR);
 
         // write "Tem certeza que deseja sair?" on the frame and "Pressione Enter para continuar ou Q para sair" below it
         putText(frame, "Tem certeza que deseja sair?", Point(200, 150), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 0), 4);
@@ -244,6 +245,7 @@ int main(int argc, const char **argv) {
                 break;
             
             if (key == 0) resizeWindow(wName, frame.cols, frame.rows);
+            resize(frame, frame, Size(1280, 720), 0, 0, INTER_LINEAR);
 
             flip(frame, frame, 1);
 
@@ -272,6 +274,8 @@ int main(int argc, const char **argv) {
 
             if (frame.empty())
                 break;
+
+            resize(frame, frame, Size(1280, 720), 0, 0, INTER_LINEAR);
 
             proc.detectAndDraw(frame);
             proc.showFrames(frame);
