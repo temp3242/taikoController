@@ -3,19 +3,22 @@
 #include "opencv2/objdetect.hpp"
 #include "opencv2/videoio.hpp"
 
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
-#include <fstream>
 
 using namespace std;
 using namespace cv;
 
 /*
- * Ideias: 
- * 
+ * Ideias:
+ *
  * Como melhorar a detecção do punho na imagem: filtrar pela cor da mão + pela
  * forma da mão. pegar a imagem de ROIS localizadas nas áreas adjacentes
  */
+
+string wName = "Taiko";
 
 class cameraException : public runtime_error {
 public:
@@ -26,7 +29,6 @@ public:
     // Constructor for integer-based error message (e.g., camera ID error)
     cameraException(int src)
             : runtime_error("Error opening camera #" + to_string(src)) {}
-
 };
 
 class ProcessamentoImg {
@@ -37,7 +39,6 @@ class ProcessamentoImg {
     Rect leftRect = Rect(50, 100, 300, 200);
     Rect rightRect = Rect(450, 100, 300, 200);
 
-
     void drawTransRect(Mat frame, Scalar color, double alpha, Rect region) {
         Mat roi = frame(region);
         Mat rectImg(roi.size(), CV_8UC3, color);
@@ -47,7 +48,7 @@ class ProcessamentoImg {
     void processFrame(Mat frame) {
         flip(frame, frame, 1);
         processedFrame = frame.clone();
-        
+
         processedFrame = processedFrame(Rect(0, 100, 800, 300));
 
         cvtColor(processedFrame, processedFrame, COLOR_BGR2GRAY);
@@ -105,17 +106,17 @@ public:
 
         putText(frame, "Taiko no Tatsujin!", Point(250, 80), FONT_HERSHEY_SIMPLEX,
                 1, Scalar(0, 0, 0), 4);
-        
-        putText(frame, "Points: " + to_string((framesLeft+framesRight)/2), Point(0, 50),
-                FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0, 0, 0), 4);
-        
+
+        putText(frame, "Points: " + to_string((framesLeft + framesRight) / 2),
+                Point(0, 50), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0, 0, 0), 4);
+
         putText(frame, "High Score: " + to_string(highscore), Point(0, 8),
                 FONT_HERSHEY_SIMPLEX, 0.75, Scalar(0, 0, 0), 4);
     }
 
     void showFrames(Mat &frame) {
         // imshow("Processed Frame", processedFrame);
-        imshow("Normal Frame", frame);
+        imshow(wName, frame);
     }
 };
 
@@ -150,7 +151,6 @@ public:
 class FileHandler {
 
 public:
-
     FileHandler() = default;
 
     static void savePoints(const string &path, unsigned long long int points) {
@@ -179,16 +179,42 @@ public:
         file.close();
         return points;
     }
-
 };
 
-string wName = "Taiko";
+
+bool confirmExit(CapturaVideo &cap) {
+    while (true) {
+
+        Mat frame = cap.getFrame();
+        if (frame.empty())
+            break;
+
+        flip(frame, frame, 1);
+
+        // write "Tem certeza que deseja sair?" on the frame and "Pressione Enter para continuar ou Q para sair" below it
+        putText(frame, "Tem certeza que deseja sair?", Point(200, 150), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 0), 4);
+        putText(frame, "Pressione Enter para continuar ou Q para sair", Point(100, 250), FONT_HERSHEY_SIMPLEX, 0.85,
+                Scalar(0, 0, 0), 4);
+
+        imshow(wName, frame);
+
+        char key = (char) waitKey(10); // Wait for a key press indefinitely
+        if (key == 'q' || key == 'Q' || key == 13) {
+            if (key == 13) {
+                return false;
+            }
+            string command = "mplayer ";
+            command += filesystem::current_path();
+            command += "/narutoflautatriste.mp3 &";
+            system(command.c_str());
+            return true;
+        }
+    }
+    
+    return true;
+}
 
 int main(int argc, const char **argv) {
-
-    // system("mplayer
-    // /home/aluno/Downloads/Projeto-Derzu-LuArCla/BARRA-DE-FERRO-CAINDO-ESTOURADO.mp3
-    // &");
 
     char key = 0;
 
@@ -206,33 +232,62 @@ int main(int argc, const char **argv) {
     }
 
     auto proc = ProcessamentoImg(cascadeName);
-    
+
     unsigned long long int highScore = FileHandler::loadPoints("highscore.txt");
     proc.highscore = highScore;
-    
+
     if (cap.isOpened()) {
         namedWindow(wName, WINDOW_KEEPRATIO);
+        while (1) {
+            Mat frame = cap.getFrame();
+            if (frame.empty())
+                break;
+            
+            if (key == 0) resizeWindow(wName, frame.cols, frame.rows);
+
+            flip(frame, frame, 1);
+
+            putText(frame, "Taiko no Tatsujin!", Point(250, 80), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 0), 4);
+            putText(frame, "Pressione Enter para comecar", Point(200, 150), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 0),
+                    4);
+            imshow(wName, frame);
+
+            key = (char) waitKey(10); // Wait for a key press indefinitely
+            if (key == 13) {
+                string command = "mplayer ";
+                command += filesystem::current_path();
+                command += "/BARRA-DE-FERRO-CAINDO-ESTOURADO.mp3 &";
+                system(command.c_str());
+                break;
+            } else if (key == 27 || key == 'q' || key == 'Q') {
+                bool exit = confirmExit(cap);
+                if (exit) {
+                    return 0;
+                }
+            }
+        }
+
         while (1) {
             Mat frame = cap.getFrame();
 
             if (frame.empty())
                 break;
-            if (key == 0) // just first time
-                resizeWindow(wName, frame.cols, frame.rows);
 
             proc.detectAndDraw(frame);
             proc.showFrames(frame);
 
             key = (char) waitKey(10);
-            if (key == 27 || key == 'q' || key == 'Q')
-                break;
+            if (key == 27 || key == 'q' || key == 'Q') {
+                bool exit = confirmExit(cap);
+                if (exit)
+                    break;
+            }
         }
 
-        if (highScore < (proc.framesLeft + proc.framesRight)/2) {
-            highScore = (proc.framesLeft + proc.framesRight)/2;
+        if (highScore < (proc.framesLeft + proc.framesRight) / 2) {
+            highScore = (proc.framesLeft + proc.framesRight) / 2;
             FileHandler::savePoints("highscore.txt", highScore);
         }
-        
     }
 
     return 0;
